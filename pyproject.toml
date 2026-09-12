@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flyphone"
+version = "0.1.0"
+description = "Teaching DeepMind's virtual fruit fly to take selfies with a phone (MuJoCo + PPO)."
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+authors = [{name = "Diego Romero Galván"}]
+keywords = ["mujoco", "reinforcement-learning", "drosophila", "flybody", "ppo"]
+dependencies = [
+    "flybody @ git+https://github.com/TuragaLab/flybody.git",
+    "mediapy",
+]
+
+[project.optional-dependencies]
+train = ["torch", "stable-baselines3>=2.3", "gymnasium", "tensorboard", "matplotlib"]
+
+[tool.setuptools.packages.find]
+include = ["flyphone*"]
