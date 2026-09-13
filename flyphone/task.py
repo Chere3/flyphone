@@ -33,7 +33,8 @@ class TakeSelfie(Walking):
                  approach_scale: float = 10.,
                  upright_weight: float = 0.05,
                  angvel_cost: float = 5e-4,
-                 flip_threshold: float = 0.1,
+                 flip_threshold: float = 0.3,
+                 flip_penalty: float = 10.,
                  photo_size: tuple[int, int] = (320, 240),
                  capture_photos: bool = True,
                  claw_friction: float = 1.0,
@@ -46,6 +47,7 @@ class TakeSelfie(Walking):
         self._upright_weight = upright_weight
         self._angvel_cost = angvel_cost
         self._flip_threshold = flip_threshold
+        self._flip_penalty = flip_penalty
         self._photo_size = photo_size
         self._capture_photos = capture_photos
         self._prev_dist = None
@@ -136,9 +138,13 @@ class TakeSelfie(Walking):
         botón; por eso el hundimiento y el bono solo cuentan estando erguida."""
         self._should_terminate = self.check_termination(physics)
         dist = self._fly_button_dist(physics)
-        reward = self._approach_scale * (self._prev_dist - dist)
-        self._prev_dist = dist
         upright = self._upright(physics)
+        # run2: abalanzarse cobraba el progreso antes de volcarse. Ahora el progreso
+        # también se pondera por la postura y el vuelco tiene castigo explícito.
+        reward = self._approach_scale * (self._prev_dist - dist) * max(upright, 0.)
+        self._prev_dist = dist
+        if upright < self._flip_threshold:
+            reward -= self._flip_penalty
         if upright > 0.5:
             reward += 5. * min(self._button_depth(physics) / BUTTON_TRAVEL, 1.)
         if self._pressed:

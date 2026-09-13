@@ -35,7 +35,7 @@ with the fly flipped** (`world_zaxis[2] = -1`).
 
 Nothing in the reward said "stay on your feet", so the cheapest strategy won. Classic reward hacking.
 
-## run2 — posture-aware reward (running)
+## run2 — posture-aware reward, v1 (stopped at 2.5M steps)
 
 Changes in `flyphone/task.py`:
 
@@ -46,6 +46,23 @@ Changes in `flyphone/task.py`:
 
 Sanity checks before launching: a fly standing still scores ≈ −0.004/step (tiny drift), a fly dropped upside
 down on the button scores no photo and terminates, a fly dropped upright on the button still takes the photo.
+
+**Result:** better, not fixed. Deterministic evaluation stayed at 0/5 through 2.5M steps while the mean final
+distance drifted down (1.08 → 0.83–0.99 cm). Rolling out the 2.5M checkpoint 8 times each way:
+
+| Mode | photo | flipped (fatal) | timeout | mean length |
+|---|:---:|:---:|:---:|---:|
+| deterministic | 1 | 4 | 3 | 765 |
+| stochastic | 1 | 5 | 2 | 741 |
+
+The fly still lunges. It collects the progress reward (`10 · Δdistance`) on the way in, then tips over; losing
+the future (discount 0) is not enough of a deterrent because the progress was already banked.
+
+## run3 — posture-aware reward, v2 (resumed from run2 @ 2.5M, running)
+
+- Progress term is weighted by posture: `10 · Δdistance · max(u, 0)`.
+- Flip threshold raised to `u < 0.3` and an explicit **−10 penalty** on the flip step.
+- Resumed from the run2 2.5M checkpoint (policy + VecNormalize stats) instead of restarting.
 
 Results will be added here as evaluations come in.
 

@@ -45,7 +45,7 @@ Runs on an Apple M4 laptop at ~750 environment steps/s with 6 worker processes (
 |---|---|---|
 | Scene | `flyphone/arena.py` | Table, 7×15 cm phone, screen, shutter button on a slide joint + spring, selfie camera that always targets the button. |
 | Task | `flyphone/task.py` | `TakeSelfie`: spawns the fly 0.8–1.4 cm from the button with a random heading; adds `button_displacement` (egocentric vector to the button) and `button_state` to flybody's proprioceptive/vestibular observations. |
-| Reward | `flyphone/task.py` | Potential‑based progress toward the button + partial button depression + **+100** when the button is pressed **while upright**; small posture and angular‑velocity costs. Falling off the phone or flipping over ends the episode with discount 0. |
+| Reward | `flyphone/task.py` | Potential‑based progress toward the button (weighted by posture) + partial button depression + **+100** when the button is pressed **while upright**; small posture and angular‑velocity costs, −10 on a flip. Falling off the phone or flipping over ends the episode with discount 0. |
 | Gym wrapper | `flyphone/gym_env.py` | Flattens observations to a 290‑vector, maps a [-1, 1] action box onto the 59 real actuator ranges (6 adhesion + 53 joints). |
 | Training | `scripts/train_ppo.py` | Stable‑Baselines3 PPO, `SubprocVecEnv` + `VecNormalize`, periodic evaluation that saves a video and the first selfie. |
 
@@ -60,8 +60,9 @@ Every one of 12 rollouts of the 4.0M checkpoint ends with the fly flipped, most 
 <p align="center"><img src="docs/run1_diver.gif" width="360" alt="run1 policy diving onto the button"><br>
 <sub>run1 @ 4.0M steps: lunges toward the button and ends up on its back. The selfies it did manage to take show it upside down on the button.</sub></p>
 
-**run2** adds an upright factor: button presses only count on its feet, flipping ends the episode, and there is
-a small per-step posture and angular-velocity cost. It is training now; curves and video will land here.
+**run2** added an upright factor (presses only count on its feet, flipping is fatal). Fewer flips, still lunging:
+the progress reward was banked before the tip-over. **run3** (running) also weights progress by posture and
+charges −10 for a flip. Curves and video will land here.
 
 Full details, curves, selfie mosaics and the bug list: **[docs/TRAINING_LOG.md](docs/TRAINING_LOG.md)**.
 

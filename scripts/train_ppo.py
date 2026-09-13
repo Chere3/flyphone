@@ -87,6 +87,10 @@ def main():
     venv = VecNormalize(venv, norm_obs=True, norm_reward=True, clip_obs=10., gamma=0.99)
 
     if args.resume:
+        # Carga también las estadísticas de normalización del checkpoint.
+        vn_path = args.resume.replace("ppo_", "ppo_vecnormalize_").replace(".zip", ".pkl")
+        if os.path.exists(vn_path):
+            venv = VecNormalize.load(vn_path, venv.venv); venv.training = True
         model = PPO.load(args.resume, env=venv, device="cpu")
     else:
         model = PPO("MlpPolicy", venv, device="cpu", verbose=1,
