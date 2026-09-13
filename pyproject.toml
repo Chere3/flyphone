@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flyphone"
-version = "0.1.0"
+version = "0.3.0"
 description = "Teaching DeepMind's virtual fruit fly to take selfies with a phone (MuJoCo + PPO)."
 readme = "README.md"
 license = {file = "LICENSE"}
