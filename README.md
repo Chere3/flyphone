@@ -8,7 +8,8 @@
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache%202.0-green"></a>
 </p>
 
-<p align="center"><img src="docs/hero.gif" width="480" alt="The fly lands on the shutter button, presses it and the phone takes a selfie"></p>
+<p align="center"><img src="docs/hero_trained.gif" width="480" alt="The trained fly walks to the shutter button, presses it and the phone takes a selfie"><br>
+<sub>Trained PPO policy (10M steps), deterministic rollout. 80 % of episodes end with a selfie.</sub></p>
 
 `flybody` is the anatomically detailed *Drosophila* model built by Google DeepMind and HHMI Janelia
 ([Nature 2025](https://www.nature.com/articles/s41586-025-09029-4)). It can walk and fly.
@@ -60,11 +61,17 @@ Every one of 12 rollouts of the 4.0M checkpoint ends with the fly flipped, most 
 <p align="center"><img src="docs/run1_diver.gif" width="360" alt="run1 policy diving onto the button"><br>
 <sub>run1 @ 4.0M steps: lunges toward the button and ends up on its back. The selfies it did manage to take show it upside down on the button.</sub></p>
 
-**run2** added an upright factor (presses only count on its feet, flipping is fatal). Fewer flips, still lunging:
-the progress reward was banked before the tip-over. **run3** also weighted progress by posture and
-charged −10 for a flip: no more flipping, but the deterministic policy walks so slowly it runs out of the 3 s
-episode one body length short. **run4** (running) doubles the episode to 6 s and adds a small per-step cost.
-Curves and video will land here.
+**run2** added an upright factor (presses only count on its feet, flipping is fatal). Fewer flips, still lunging.
+**run3** weighted progress by posture and charged −10 for a flip: no more flipping, but the policy walks so
+slowly it runs out of the 3 s episode one body length short. **run4** doubled the episode to 6 s and added a
+small per-step cost. Result, v0.1 checkpoint at 10M steps, 20 fresh episodes:
+
+| Policy | success | flipped | mean time to photo |
+|---|:---:|:---:|---:|
+| deterministic | **80 %** | 1/20 | 0.57 s |
+| stochastic | 70 % | 4/20 | 1.14 s |
+
+<p align="center"><img src="docs/final_curves.png" width="720" alt="training curves, run2 to run4"></p>
 
 Full details, curves, selfie mosaics and the bug list: **[docs/TRAINING_LOG.md](docs/TRAINING_LOG.md)**.
 
@@ -81,7 +88,7 @@ Full details, curves, selfie mosaics and the bug list: **[docs/TRAINING_LOG.md](
 ## Roadmap
 
 - [x] Publish run1 curves and the reward‑hacking post‑mortem
-- [ ] Publish run2 curves and the checkpoint‑by‑checkpoint evolution video
+- [x] Publish final curves and the checkpoint‑by‑checkpoint evolution video (see the v0.1 release)
 - [ ] Use flybody's pretrained walker as a low‑level controller (Linux/Colab) for a natural gait
 - [ ] Multiple buttons / a camera app UI on the screen
 - [ ] Vision: let the fly find the button with its own compound‑eye cameras

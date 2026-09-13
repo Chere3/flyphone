@@ -1,8 +1,9 @@
 """Gráficas y video de la evolución del entrenamiento.
 
-Uso: MUJOCO_GL=glfw python scripts/make_evolution.py --run run1
-Genera en runs/<run>/: evolucion.png (curvas), selfies.png (mosaico) y evolucion.mp4
+Uso: MUJOCO_GL=glfw python scripts/make_evolution.py --runs run2 run3 run4 --out final
+Genera en runs/<out>/: evolucion.png (curvas), selfies.png (mosaico) y evolucion.mp4
 (un episodio determinista por checkpoint, mismo punto de partida, con etiqueta del paso).
+Varias corridas encadenadas (reanudadas una de otra) se tratan como una sola línea temporal.
 """
 import argparse, glob, os, re, sys
 os.environ.setdefault("MUJOCO_GL", "glfw")
@@ -19,15 +20,18 @@ ROOT = os.path.join(os.path.dirname(__file__), "..")
 BLUE, ORANGE, GREY, INK = "#2a78d6", "#eb6834", "#c9c8c2", "#52514e"
 
 
-def load_scalars(tb_dir):
-    runs = sorted(glob.glob(os.path.join(tb_dir, "*")))
-    if not runs:
-        return {}
-    acc = EventAccumulator(runs[-1], size_guidance={"scalars": 0}); acc.Reload()
+def load_scalars(tb_dir, runs):
+    """Concatena los escalares de las corridas indicadas (ordenados por paso)."""
     out = {}
-    for tag in acc.Tags()["scalars"]:
-        ev = acc.Scalars(tag)
-        out[tag] = (np.array([e.step for e in ev]), np.array([e.value for e in ev]))
+    for run in runs:
+        for d in sorted(glob.glob(os.path.join(tb_dir, f"{run}_*"))):
+            acc = EventAccumulator(d, size_guidance={"scalars": 0}); acc.Reload()
+            for tag in acc.Tags()["scalars"]:
+                ev = acc.Scalars(tag)
+                x, y = out.get(tag, (np.array([]), np.array([])))
+                out[tag] = (np.concatenate([x, [e.step for e in ev]]), np.concatenate([y, [e.value for e in ev]]))
+    for tag, (x, y) in out.items():
+        o = np.argsort(x, kind="stable"); out[tag] = (x[o], y[o])
     return out
 
 
@@ -56,8 +60,9 @@ def plot_curves(scalars, path):
     fig.tight_layout(); fig.savefig(path, facecolor=fig.get_facecolor()); plt.close(fig)
 
 
-def selfie_grid(run_dir, path):
-    files = sorted(glob.glob(os.path.join(run_dir, "selfie_*.png")))
+def selfie_grid(run_dirs, path):
+    files = sorted([f for d in run_dirs for f in glob.glob(os.path.join(d, "selfie_*.png"))],
+                   key=lambda f: int(re.findall(r"(\d+)", os.path.basename(f))[0]))
     if not files:
         return False
     thumbs = []
@@ -80,9 +85,9 @@ def annotate(frame, text, sub=None):
     return np.asarray(im)
 
 
-def rollout(model, vecnorm, steps_label, seed=777, every=3):
+def rollout(model, vecnorm, steps_label, seed=777, every=3, time_limit=6.):
     from flyphone.gym_env import FlyPhoneGym
-    env = FlyPhoneGym(seed=seed, capture_photos=False, render_camera="closeup")
+    env = FlyPhoneGym(seed=seed, capture_photos=False, render_camera="closeup", time_limit=time_limit)
     obs, _ = env.reset(); frames, done, t = [], False, 0
     while not done:
         if model is None:
@@ -103,18 +108,18 @@ def rollout(model, vecnorm, steps_label, seed=777, every=3):
     return frames, info["pressed"]
 
 
-def make_video(run_dir, path):
+def make_video(run_dirs, path):
     from stable_baselines3 import PPO
     from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
     from flyphone.gym_env import FlyPhoneGym
-    ckpts = sorted(glob.glob(os.path.join(run_dir, "ppo_*_steps.zip")),
+    ckpts = sorted([c for d in run_dirs for c in glob.glob(os.path.join(d, "ppo_*_steps.zip"))],
                    key=lambda p: int(re.findall(r"ppo_(\d+)_steps", p)[0]))
     frames, results = [], []
     f, ok = rollout(None, None, "0 pasos (sin entrenar)"); frames += f; results.append((0, ok))
     dummy = DummyVecEnv([lambda: FlyPhoneGym(seed=0)])
     for ck in ckpts:
         steps = int(re.findall(r"ppo_(\d+)_steps", ck)[0])
-        vn_path = os.path.join(run_dir, f"ppo_vecnormalize_{steps}_steps.pkl")
+        vn_path = ck.replace("ppo_", "ppo_vecnormalize_").replace(".zip", ".pkl")
         vn = VecNormalize.load(vn_path, dummy) if os.path.exists(vn_path) else None
         if vn is not None: vn.training = False
         model = PPO.load(ck, device="cpu")
@@ -125,11 +130,15 @@ def make_video(run_dir, path):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(); ap.add_argument("--run", default="run1"); ap.add_argument("--no-video", action="store_true")
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--runs", nargs="+", default=["run1"], help="corridas encadenadas, en orden")
+    ap.add_argument("--out", default=None, help="carpeta de salida en runs/ (por defecto la última corrida)")
+    ap.add_argument("--no-video", action="store_true")
     args = ap.parse_args()
-    run_dir = os.path.join(ROOT, "runs", args.run)
-    scalars = load_scalars(os.path.join(ROOT, "runs", "tb"))
-    plot_curves(scalars, os.path.join(run_dir, "evolucion.png")); print("gráficas: evolucion.png")
-    if selfie_grid(run_dir, os.path.join(run_dir, "selfies.png")): print("mosaico: selfies.png")
+    run_dirs = [os.path.join(ROOT, "runs", r) for r in args.runs]
+    out_dir = os.path.join(ROOT, "runs", args.out or args.runs[-1]); os.makedirs(out_dir, exist_ok=True)
+    scalars = load_scalars(os.path.join(ROOT, "runs", "tb"), args.runs)
+    plot_curves(scalars, os.path.join(out_dir, "evolucion.png")); print("gráficas: evolucion.png")
+    if selfie_grid(run_dirs, os.path.join(out_dir, "selfies.png")): print("mosaico: selfies.png")
     if not args.no_video:
-        res = make_video(run_dir, os.path.join(run_dir, "evolucion.mp4")); print("video: evolucion.mp4", res)
+        res = make_video(run_dirs, os.path.join(out_dir, "evolucion.mp4")); print("video: evolucion.mp4", res)

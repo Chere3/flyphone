@@ -72,13 +72,34 @@ Tracing the deterministic policy showed why: it walks, upright, at ~0.15 cm/s. F
 runs out of the 3 s episode about one body length short of the cap (final distances 0.85–1.08 cm). With
 exploration noise it occasionally covers the gap; the mean action does not.
 
-## run4 — longer episodes, time cost (resumed from run3 @ 5.0M, running)
+## run4 — longer episodes, time cost (resumed from run3 @ 5.0M; v0.1 = 10.0M checkpoint, still training to 15M)
 
 - Episode length 3 s → **6 s** (1500 → 3000 control steps).
 - **−0.01 per step** so arriving earlier is worth more than dawdling (max −30 over an episode vs +100 for the photo).
 - Everything else unchanged; resumed from the run3 5.0M checkpoint.
 
-Results will be added here as evaluations come in.
+**Result: it works.** Deterministic evaluation (5 episodes every 250k steps):
+
+| Steps | 5.0 | 5.25 | 5.5 | 5.75 | 6.0 | 6.25 | 6.5 | 6.75 | 7.0 | 7.25 | 7.5 | 7.75 | 8.0 | 8.25 | 8.5 | 8.75 | 9.0 | 9.25 | 9.5 | 9.75 | 10.0 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Photos /5 | 1 | 0 | 0 | 0 | 0 | 1 | 1 | 2 | 0 | 2 | **3** | 2 | 2 | 1 | 1 | **3** | **3** | **4** | 1 | **4** | **4** |
+
+v0.1 checkpoint (10.0M steps), 20 fresh episodes each, 6 s limit, spawn 0.8–1.4 cm from the button:
+
+| Policy | photo | timeout | flipped | success | mean time to photo |
+|---|:---:|:---:|:---:|:---:|---:|
+| deterministic | 16 | 3 | 1 | **80 %** | 0.57 s |
+| stochastic | 14 | 2 | 4 | 70 % | 1.14 s |
+
+The selfies are now taken standing on the button. The gait is not a fly's gait: it is a fast, low lunge-and-step
+that keeps the body upright, which is what a from-scratch PPO policy on 59 actuators finds first. A natural
+gait would need flybody's imitation-trained walker as a low-level controller (issue #2).
+
+<p align="center"><img src="final_curves.png" width="720" alt="run2→run4 training curves"></p>
+<p align="center"><img src="final_selfies.png" width="720" alt="selfies across training"></p>
+
+The full checkpoint-by-checkpoint video (same start state, one episode per checkpoint from 0.5M to 10M
+steps) is attached to the [v0.1 release](https://github.com/Chere3/flyphone/releases/tag/v0.1).
 
 ## Bugs that were caught before they burned a run
 
