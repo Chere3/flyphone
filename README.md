@@ -54,11 +54,11 @@ weight bottoms the button out. The button body uses gravity compensation so it r
 
 ## Results so far
 
-**run1** (4.5M steps, no posture terms) learned to take selfies… by diving onto the button and landing on its back.
-Every one of 12 rollouts of the 4.0M checkpoint ends with the fly flipped. Textbook reward hacking.
+**run1** (4.5M steps, no posture terms) learned to take selfies… by throwing itself at the button and landing on its back.
+Every one of 12 rollouts of the 4.0M checkpoint ends with the fly flipped, most of them short of the button. Textbook reward hacking.
 
 <p align="center"><img src="docs/run1_diver.gif" width="360" alt="run1 policy diving onto the button"><br>
-<sub>run1 @ 4.0M steps: reaches the button, then flips. Selfies from this run show the fly upside down.</sub></p>
+<sub>run1 @ 4.0M steps: lunges toward the button and ends up on its back. The selfies it did manage to take show it upside down on the button.</sub></p>
 
 **run2** adds an upright factor: button presses only count on its feet, flipping ends the episode, and there is
 a small per-step posture and angular-velocity cost. It is training now; curves and video will land here.

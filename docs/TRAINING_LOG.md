@@ -30,7 +30,8 @@ The fly discovered that flipping itself onto the button also depresses the sprin
 selfie shows it upside down, legs in the air. Rolling out the 4.0M checkpoint 12 times: **12/12 episodes end
 with the fly flipped** (`world_zaxis[2] = -1`).
 
-<p align="center"><img src="run1_diver.gif" width="360" alt="run1 policy diving onto the button"></p>
+<p align="center"><img src="run1_diver.gif" width="360" alt="run1 policy lunging toward the button and flipping"><br>
+<sub>4.0M checkpoint, stochastic rollout: the closest of the 12 flipped episodes. It lunges, flips, and does not reach the cap.</sub></p>
 
 Nothing in the reward said "stay on your feet", so the cheapest strategy won. Classic reward hacking.
 

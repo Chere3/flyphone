@@ -12,7 +12,7 @@ ck = sys.argv[1] if len(sys.argv) > 1 else "runs/run1/ppo_3999984_steps.zip"
 vn_path = ck.replace("ppo_", "ppo_vecnormalize_").replace(".zip", ".pkl")
 vn = VecNormalize.load(vn_path, DummyVecEnv([lambda: FlyPhoneGym(seed=0)])); vn.training = False
 model = PPO.load(ck, device="cpu")
-best = None
+best, best_dist = None, 9.
 for seed in range(12345, 12345 + 12):
     env = FlyPhoneGym(seed=seed, capture_photos=False, render_camera="closeup", flip_threshold=-2.)
     obs, _ = env.reset(); frames, done, t, min_up = [], False, 0, 1.
@@ -28,9 +28,9 @@ for seed in range(12345, 12345 + 12):
         t += 1
     depth = env.task._button_depth(env.physics)
     print(f"seed {seed}: dist {info['dist']:.2f} min_upright {min_up:+.2f} depth {depth:.4f}", flush=True)
-    if min_up < 0 and info["dist"] < 0.5:
-        best = frames; break
-    if best is None or info["dist"] < 0.6: best = frames
-sel = best[::2][:120] + [best[-1]] * 12
+    # episodio volcado que más se acerca al botón (honesto: no siempre llega encima)
+    if min_up < 0 and info["dist"] < best_dist:
+        best, best_dist = frames, info["dist"]
+sel = best[::2][:200] + [best[-1]] * 12
 mediapy.write_video("docs/run1_diver.gif", [np.asarray(Image.fromarray(f).resize((360, 270))) for f in sel], fps=15, codec="gif")
 print("docs/run1_diver.gif", len(sel), "cuadros")
