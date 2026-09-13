@@ -9,10 +9,10 @@ class FlyPhoneGym(gym.Env):
     metadata = {"render_modes": ["rgb_array"]}
 
     def __init__(self, seed: int = 0, time_limit: float = 3., capture_photos: bool = False,
-                 spawn_radius=(0.8, 1.4), render_camera: str = "phone_side"):
+                 spawn_radius=(0.8, 1.4), render_camera: str = "phone_side", **task_kwargs):
         self._env = make_env(random_state=np.random.RandomState(seed),
                              time_limit=time_limit, capture_photos=capture_photos,
-                             spawn_radius=spawn_radius)
+                             spawn_radius=spawn_radius, **task_kwargs)
         self._render_camera = render_camera
         spec = self._env.action_spec()
         # La política actúa en [-1, 1]; se mapea linealmente al rango real de cada actuador.

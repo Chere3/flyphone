@@ -82,7 +82,7 @@ def annotate(frame, text, sub=None):
 
 def rollout(model, vecnorm, steps_label, seed=777, every=3):
     from flyphone.gym_env import FlyPhoneGym
-    env = FlyPhoneGym(seed=seed, capture_photos=False)
+    env = FlyPhoneGym(seed=seed, capture_photos=False, render_camera="closeup")
     obs, _ = env.reset(); frames, done, t = [], False, 0
     while not done:
         if model is None:

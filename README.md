@@ -45,14 +45,29 @@ Runs on an Apple M4 laptop at ~750 environment steps/s with 6 worker processes (
 |---|---|---|
 | Scene | `flyphone/arena.py` | Table, 7×15 cm phone, screen, shutter button on a slide joint + spring, selfie camera that always targets the button. |
 | Task | `flyphone/task.py` | `TakeSelfie`: spawns the fly 0.8–1.4 cm from the button with a random heading; adds `button_displacement` (egocentric vector to the button) and `button_state` to flybody's proprioceptive/vestibular observations. |
-| Reward | `flyphone/task.py` | Potential‑based progress toward the button + partial button depression + **+100** when the button is pressed. Falling off the phone ends the episode with discount 0. |
+| Reward | `flyphone/task.py` | Potential‑based progress toward the button + partial button depression + **+100** when the button is pressed **while upright**; small posture and angular‑velocity costs. Falling off the phone or flipping over ends the episode with discount 0. |
 | Gym wrapper | `flyphone/gym_env.py` | Flattens observations to a 290‑vector, maps a [-1, 1] action box onto the 59 real actuator ranges (6 adhesion + 53 joints). |
 | Training | `scripts/train_ppo.py` | Stable‑Baselines3 PPO, `SubprocVecEnv` + `VecNormalize`, periodic evaluation that saves a video and the first selfie. |
 
 Units are flybody's CGS units: the fly weighs ~1 mg (0.97 dyn) and the spring is tuned so that the fly's own
 weight bottoms the button out. The button body uses gravity compensation so it rests at exactly zero without a fly on it.
 
+## Results so far
+
+**run1** (4.5M steps, no posture terms) learned to take selfies… by diving onto the button and landing on its back.
+Every one of 12 rollouts of the 4.0M checkpoint ends with the fly flipped. Textbook reward hacking.
+
+<p align="center"><img src="docs/run1_diver.gif" width="360" alt="run1 policy diving onto the button"><br>
+<sub>run1 @ 4.0M steps: reaches the button, then flips. Selfies from this run show the fly upside down.</sub></p>
+
+**run2** adds an upright factor: button presses only count on its feet, flipping ends the episode, and there is
+a small per-step posture and angular-velocity cost. It is training now; curves and video will land here.
+
+Full details, curves, selfie mosaics and the bug list: **[docs/TRAINING_LOG.md](docs/TRAINING_LOG.md)**.
+
 ## Lessons learned (so you don't repeat them)
+
+- **Reward what you mean.** Without an upright term the fly found that flipping onto the button is cheaper than walking. See the training log.
 
 - **Don't recompile the MJCF every episode.** `composer.Environment(recompile_mjcf_every_episode=False)` turned a 1.1 s, memory‑leaking reset into 0.1 s.
 - **On Apple Silicon, 6 worker processes beat 9.** More workers than performance cores just contend. Set `OMP_NUM_THREADS=1` per worker.
@@ -62,7 +77,8 @@ weight bottoms the button out. The button body uses gravity compensation so it r
 
 ## Roadmap
 
-- [ ] Publish training curves and the checkpoint‑by‑checkpoint evolution video
+- [x] Publish run1 curves and the reward‑hacking post‑mortem
+- [ ] Publish run2 curves and the checkpoint‑by‑checkpoint evolution video
 - [ ] Use flybody's pretrained walker as a low‑level controller (Linux/Colab) for a natural gait
 - [ ] Multiple buttons / a camera app UI on the screen
 - [ ] Vision: let the fly find the button with its own compound‑eye cameras

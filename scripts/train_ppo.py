@@ -44,7 +44,7 @@ class EvalSelfie(BaseCallback):
             return True
         self._last = self.num_timesteps
         if self._env is None:
-            self._env = FlyPhoneGym(seed=12345, spawn_radius=self.spawn, capture_photos=False)
+            self._env = FlyPhoneGym(seed=12345, spawn_radius=self.spawn, capture_photos=False, render_camera="closeup")
         vec = self.model.get_vec_normalize_env()
         successes, dists, frames, saved = 0, [], [], False
         for ep in range(self.n):

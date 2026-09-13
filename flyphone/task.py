@@ -31,6 +31,9 @@ class TakeSelfie(Walking):
                  press_fraction: float = 0.5,
                  press_bonus: float = 100.,
                  approach_scale: float = 10.,
+                 upright_weight: float = 0.05,
+                 angvel_cost: float = 5e-4,
+                 flip_threshold: float = 0.1,
                  photo_size: tuple[int, int] = (320, 240),
                  capture_photos: bool = True,
                  claw_friction: float = 1.0,
@@ -40,6 +43,9 @@ class TakeSelfie(Walking):
         self._press_depth = press_fraction * BUTTON_TRAVEL
         self._press_bonus = press_bonus
         self._approach_scale = approach_scale
+        self._upright_weight = upright_weight
+        self._angvel_cost = angvel_cost
+        self._flip_threshold = flip_threshold
         self._photo_size = photo_size
         self._capture_photos = capture_photos
         self._prev_dist = None
@@ -108,6 +114,10 @@ class TakeSelfie(Walking):
     def _button_depth(self, physics):
         return -physics.bind(self._arena.button_joint).qpos[0]
 
+    def _upright(self, physics):
+        """Componente z del eje z del mundo en el marco de la mosca: 1 erguida, -1 volcada."""
+        return float(self._walker.observables.world_zaxis(physics)[2])
+
     def _fly_button_dist(self, physics):
         fly_pos, _ = self._walker.get_pose(physics)
         btn = physics.bind(self._arena.button_body).xpos
@@ -118,27 +128,39 @@ class TakeSelfie(Walking):
 
     def get_reward(self, physics):
         """Shaping potencial (progreso hacia el botón, en cm) + hundimiento parcial
-        del botón + bono al presionar. Sin término denso por "estar cerca", para que
-        no convenga quedarse junto al botón sin presionarlo."""
+        del botón + bono al presionar, más términos de postura: penalización por no
+        estar erguida y por velocidad angular. Sin término denso por "estar cerca",
+        para que no convenga quedarse junto al botón sin presionarlo.
+
+        run1 (sin términos de postura) aprendió a lanzarse y caer volcada sobre el
+        botón; por eso el hundimiento y el bono solo cuentan estando erguida."""
         self._should_terminate = self.check_termination(physics)
         dist = self._fly_button_dist(physics)
         reward = self._approach_scale * (self._prev_dist - dist)
         self._prev_dist = dist
-        reward += 5. * min(self._button_depth(physics) / BUTTON_TRAVEL, 1.)
+        upright = self._upright(physics)
+        if upright > 0.5:
+            reward += 5. * min(self._button_depth(physics) / BUTTON_TRAVEL, 1.)
         if self._pressed:
             reward += self._press_bonus
+        reward += self._upright_weight * (upright - 1.)
+        reward -= self._angvel_cost * float(np.linalg.norm(
+            self._walker.observables.gyro(physics)))
         return float(reward)
 
     def check_termination(self, physics):
-        # ¿Se presionó el botón?
-        if not self._pressed and self._button_depth(physics) >= self._press_depth:
+        upright = self._upright(physics)
+        # ¿Se presionó el botón (estando erguida)?
+        if (not self._pressed and upright > 0.5
+                and self._button_depth(physics) >= self._press_depth):
             self._pressed = True
             self._last_photo = self._capture_photo(physics)
             self._photos_taken += 1
             return True
         fly_pos, _ = self._walker.get_pose(physics)
         fell_off = (abs(fly_pos[0]) > PHONE_HALF[0] or abs(fly_pos[1]) > PHONE_HALF[1]
-                    or fly_pos[2] < SCREEN_TOP + 0.03)
+                    or fly_pos[2] < SCREEN_TOP + 0.03
+                    or upright < self._flip_threshold)   # volcada: terminación fatal
         linvel = np.linalg.norm(self._walker.observables.velocimeter(physics))
         angvel = np.linalg.norm(self._walker.observables.gyro(physics))
         return (fell_off or linvel > _TERMINAL_LINVEL or angvel > _TERMINAL_ANGVEL
