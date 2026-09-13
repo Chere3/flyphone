@@ -22,10 +22,10 @@ from flyphone.gym_env import FlyPhoneGym
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
 
-def make(seed, spawn):
+def make(seed, spawn, time_limit):
     def _f():
         # Monitor registra recompensa/duración por episodio (rollout/ep_rew_mean en TensorBoard).
-        return Monitor(FlyPhoneGym(seed=seed, spawn_radius=spawn))
+        return Monitor(FlyPhoneGym(seed=seed, spawn_radius=spawn, time_limit=time_limit))
     return _f
 
 
@@ -33,9 +33,10 @@ class EvalSelfie(BaseCallback):
     """Cada `every` pasos: N episodios deterministas en un entorno con render;
     registra tasa de éxito y guarda la selfie + video del primer éxito."""
 
-    def __init__(self, run_dir, spawn, every=250_000, n_episodes=5):
+    def __init__(self, run_dir, spawn, every=250_000, n_episodes=5, time_limit=3.):
         super().__init__()
         self.run_dir, self.spawn, self.every, self.n = run_dir, spawn, every, n_episodes
+        self.time_limit = time_limit
         self._last = 0
         self._env = None
 
@@ -44,7 +45,7 @@ class EvalSelfie(BaseCallback):
             return True
         self._last = self.num_timesteps
         if self._env is None:
-            self._env = FlyPhoneGym(seed=12345, spawn_radius=self.spawn, capture_photos=False, render_camera="closeup")
+            self._env = FlyPhoneGym(seed=12345, spawn_radius=self.spawn, capture_photos=False, render_camera="closeup", time_limit=self.time_limit)
         vec = self.model.get_vec_normalize_env()
         successes, dists, frames, saved = 0, [], [], False
         for ep in range(self.n):
@@ -78,12 +79,13 @@ def main():
     ap.add_argument("--spawn", type=float, nargs=2, default=(0.8, 1.4))
     ap.add_argument("--resume", default=None)
     ap.add_argument("--eval-every", type=int, default=250_000)
+    ap.add_argument("--time-limit", type=float, default=6.)
     args = ap.parse_args()
     torch.set_num_threads(2)
 
     run_dir = os.path.join(ROOT, "runs", args.run)
     os.makedirs(run_dir, exist_ok=True)
-    venv = SubprocVecEnv([make(i, tuple(args.spawn)) for i in range(args.envs)], start_method="spawn")
+    venv = SubprocVecEnv([make(i, tuple(args.spawn), args.time_limit) for i in range(args.envs)], start_method="spawn")
     venv = VecNormalize(venv, norm_obs=True, norm_reward=True, clip_obs=10., gamma=0.99)
 
     if args.resume:
@@ -100,7 +102,7 @@ def main():
                                        log_std_init=-1.0),
                     tensorboard_log=os.path.join(ROOT, "runs", "tb"))
     callbacks = [CheckpointCallback(500_000 // args.envs, run_dir, name_prefix="ppo", save_vecnormalize=True),
-                 EvalSelfie(run_dir, tuple(args.spawn), every=args.eval_every)]
+                 EvalSelfie(run_dir, tuple(args.spawn), every=args.eval_every, time_limit=args.time_limit)]
     t0 = time.time()
     model.learn(total_timesteps=args.steps, callback=callbacks, tb_log_name=args.run,
                 reset_num_timesteps=args.resume is None)

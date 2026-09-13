@@ -35,6 +35,7 @@ class TakeSelfie(Walking):
                  angvel_cost: float = 5e-4,
                  flip_threshold: float = 0.3,
                  flip_penalty: float = 10.,
+                 time_penalty: float = 0.01,
                  photo_size: tuple[int, int] = (320, 240),
                  capture_photos: bool = True,
                  claw_friction: float = 1.0,
@@ -48,6 +49,7 @@ class TakeSelfie(Walking):
         self._angvel_cost = angvel_cost
         self._flip_threshold = flip_threshold
         self._flip_penalty = flip_penalty
+        self._time_penalty = time_penalty
         self._photo_size = photo_size
         self._capture_photos = capture_photos
         self._prev_dist = None
@@ -150,6 +152,7 @@ class TakeSelfie(Walking):
         if self._pressed:
             reward += self._press_bonus
         reward += self._upright_weight * (upright - 1.)
+        reward -= self._time_penalty   # run4: la política determinista llegaba tarde; premia llegar antes
         reward -= self._angvel_cost * float(np.linalg.norm(
             self._walker.observables.gyro(physics)))
         return float(reward)

@@ -58,11 +58,25 @@ distance drifted down (1.08 → 0.83–0.99 cm). Rolling out the 2.5M checkpoint
 The fly still lunges. It collects the progress reward (`10 · Δdistance`) on the way in, then tips over; losing
 the future (discount 0) is not enough of a deterrent because the progress was already banked.
 
-## run3 — posture-aware reward, v2 (resumed from run2 @ 2.5M, running)
+## run3 — posture-aware reward, v2 (resumed from run2 @ 2.5M, stopped at 5.0M)
 
 - Progress term is weighted by posture: `10 · Δdistance · max(u, 0)`.
 - Flip threshold raised to `u < 0.3` and an explicit **−10 penalty** on the flip step.
 - Resumed from the run2 2.5M checkpoint (policy + VecNormalize stats) instead of restarting.
+
+**Result:** flipping is gone (3.5M checkpoint, 8 deterministic rollouts: 0 flipped, all timeouts; run2 had 4/8
+flipped). Training reward rose to 22–49, i.e. the *stochastic* policy presses the button in roughly a quarter
+to almost half of training episodes. But deterministic evaluation stayed at 0–1/5 through 5.0M steps.
+
+Tracing the deterministic policy showed why: it walks, upright, at ~0.15 cm/s. From 0.9–1.4 cm away it simply
+runs out of the 3 s episode about one body length short of the cap (final distances 0.85–1.08 cm). With
+exploration noise it occasionally covers the gap; the mean action does not.
+
+## run4 — longer episodes, time cost (resumed from run3 @ 5.0M, running)
+
+- Episode length 3 s → **6 s** (1500 → 3000 control steps).
+- **−0.01 per step** so arriving earlier is worth more than dawdling (max −30 over an episode vs +100 for the photo).
+- Everything else unchanged; resumed from the run3 5.0M checkpoint.
 
 Results will be added here as evaluations come in.
 

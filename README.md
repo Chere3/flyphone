@@ -61,8 +61,10 @@ Every one of 12 rollouts of the 4.0M checkpoint ends with the fly flipped, most 
 <sub>run1 @ 4.0M steps: lunges toward the button and ends up on its back. The selfies it did manage to take show it upside down on the button.</sub></p>
 
 **run2** added an upright factor (presses only count on its feet, flipping is fatal). Fewer flips, still lunging:
-the progress reward was banked before the tip-over. **run3** (running) also weights progress by posture and
-charges −10 for a flip. Curves and video will land here.
+the progress reward was banked before the tip-over. **run3** also weighted progress by posture and
+charged −10 for a flip: no more flipping, but the deterministic policy walks so slowly it runs out of the 3 s
+episode one body length short. **run4** (running) doubles the episode to 6 s and adds a small per-step cost.
+Curves and video will land here.
 
 Full details, curves, selfie mosaics and the bug list: **[docs/TRAINING_LOG.md](docs/TRAINING_LOG.md)**.
 
