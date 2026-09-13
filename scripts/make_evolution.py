@@ -15,6 +15,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+from flyphone.viz import ActivationProbe, compose
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 BLUE, ORANGE, GREY, INK = "#2a78d6", "#eb6834", "#c9c8c2", "#52514e"
@@ -85,27 +86,27 @@ def annotate(frame, text, sub=None):
     return np.asarray(im)
 
 
-def rollout(model, vecnorm, steps_label, seed=777, every=3, time_limit=6.):
+def rollout(model, vecnorm, steps_label, writer, seed=777, every=4, time_limit=6.):
+    """Escribe los cuadros directamente en `writer` (no acumula en memoria)."""
     from flyphone.gym_env import FlyPhoneGym
     env = FlyPhoneGym(seed=seed, capture_photos=False, render_camera="closeup", time_limit=time_limit)
-    obs, _ = env.reset(); frames, done, t = [], False, 0
+    obs, _ = env.reset(); done, t = False, 0
+    probe = ActivationProbe(model)
     while not done:
-        if model is None:
-            act = env.action_space.sample() * 0.3
-        else:
-            o = vecnorm.normalize_obs(obs) if vecnorm is not None else obs
-            act, _ = model.predict(o, deterministic=True)
+        o = vecnorm.normalize_obs(obs) if vecnorm is not None else np.clip(obs, -10, 10)
+        act = probe.predict(o, deterministic=True)
         obs, r, term, trunc, info = env.step(act); done = term or trunc
         if t % every == 0:
-            frames.append(annotate(env.render(), f"{steps_label}   t={t*0.002:.2f}s   dist={info['dist']:.2f}cm"))
+            writer.add_image(compose(annotate(env.render(), f"{steps_label}   t={t*0.002:.2f}s   dist={info['dist']:.2f}cm"), probe.acts))
         t += 1
     status = "FOTO TOMADA" if info["pressed"] else "sin foto"
-    last = annotate(env.render(), f"{steps_label}   t={t*0.002:.2f}s   dist={info['dist']:.2f}cm", status)
+    last = compose(annotate(env.render(), f"{steps_label}   t={t*0.002:.2f}s   dist={info['dist']:.2f}cm", status), probe.acts)
     if info["pressed"]:
         photo = Image.fromarray(env.task.take_photo(env.physics)).resize((160, 120))
-        base = Image.fromarray(last); base.paste(photo, (base.width - 168, 34)); last = np.asarray(base)
-    frames += [last] * 30
-    return frames, info["pressed"]
+        base = Image.fromarray(last); base.paste(photo, (480 - 168, 34)); last = np.asarray(base)
+    for _ in range(30):
+        writer.add_image(last)
+    return info["pressed"]
 
 
 def make_video(run_dirs, path):
@@ -114,18 +115,23 @@ def make_video(run_dirs, path):
     from flyphone.gym_env import FlyPhoneGym
     ckpts = sorted([c for d in run_dirs for c in glob.glob(os.path.join(d, "ppo_*_steps.zip"))],
                    key=lambda p: int(re.findall(r"ppo_(\d+)_steps", p)[0]))
-    frames, results = [], []
-    f, ok = rollout(None, None, "0 pasos (sin entrenar)"); frames += f; results.append((0, ok))
+    results = []
     dummy = DummyVecEnv([lambda: FlyPhoneGym(seed=0)])
-    for ck in ckpts:
-        steps = int(re.findall(r"ppo_(\d+)_steps", ck)[0])
-        vn_path = ck.replace("ppo_", "ppo_vecnormalize_").replace(".zip", ".pkl")
-        vn = VecNormalize.load(vn_path, dummy) if os.path.exists(vn_path) else None
-        if vn is not None: vn.training = False
-        model = PPO.load(ck, device="cpu")
-        f, ok = rollout(model, vn, f"{steps/1e6:.1f}M pasos"); frames += f; results.append((steps, ok))
-        print(f"  checkpoint {steps:,}: {'foto' if ok else 'sin foto'}", flush=True)
-    mediapy.write_video(path, frames, fps=30)
+    # Línea base: la misma arquitectura sin entrenar (pesos aleatorios).
+    untrained = PPO("MlpPolicy", dummy, device="cpu", seed=0,
+                    policy_kwargs=dict(net_arch=dict(pi=[256, 256], vf=[256, 256])))
+    from flyphone.brainviz import BrainMap
+    shape = (360, 480 + int(360 * 1.4))
+    with mediapy.VideoWriter(path, shape=shape, fps=30) as writer:
+        ok = rollout(untrained, None, "0 pasos (sin entrenar)", writer); results.append((0, ok))
+        for ck in ckpts:
+            steps = int(re.findall(r"ppo_(\d+)_steps", ck)[0])
+            vn_path = ck.replace("ppo_", "ppo_vecnormalize_").replace(".zip", ".pkl")
+            vn = VecNormalize.load(vn_path, dummy) if os.path.exists(vn_path) else None
+            if vn is not None: vn.training = False
+            model = PPO.load(ck, device="cpu")
+            ok = rollout(model, vn, f"{steps/1e6:.1f}M pasos", writer); results.append((steps, ok))
+            print(f"  checkpoint {steps:,}: {'foto' if ok else 'sin foto'}", flush=True)
     return results
 
 

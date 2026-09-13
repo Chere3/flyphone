@@ -9,7 +9,8 @@
 </p>
 
 <p align="center"><img src="docs/hero_trained.gif" width="480" alt="The trained fly walks to the shutter button, presses it and the phone takes a selfie"><br>
-<sub>Trained PPO policy (10M steps), deterministic rollout. 80 % of episodes end with a selfie.</sub></p>
+<sub>Trained PPO policy (10M steps), deterministic rollout. 80 % of episodes end with a selfie.<br>
+Right: the policy's activity projected onto the <a href="https://flywire.ai">FlyWire</a> fly-brain connectome (139k real neuron positions). See <a href="#brain-map">Brain map</a>.</sub></p>
 
 `flybody` is the anatomically detailed *Drosophila* model built by Google DeepMind and HHMI Janelia
 ([Nature 2025](https://www.nature.com/articles/s41586-025-09029-4)). It can walk and fly.
@@ -64,16 +65,39 @@ Every one of 12 rollouts of the 4.0M checkpoint ends with the fly flipped, most 
 **run2** added an upright factor (presses only count on its feet, flipping is fatal). Fewer flips, still lunging.
 **run3** weighted progress by posture and charged −10 for a flip: no more flipping, but the policy walks so
 slowly it runs out of the 3 s episode one body length short. **run4** doubled the episode to 6 s and added a
-small per-step cost. Result, v0.1 checkpoint at 10M steps, 20 fresh episodes:
+small per-step cost. 20 fresh episodes per row:
 
-| Policy | success | flipped | mean time to photo |
-|---|:---:|:---:|---:|
-| deterministic | **80 %** | 1/20 | 0.57 s |
-| stochastic | 70 % | 4/20 | 1.14 s |
+| Checkpoint | Policy | success | flipped | mean time to photo |
+|---|---|:---:|:---:|---:|
+| v0.1 · 10M steps | deterministic | 80 % | 1/20 | 0.57 s |
+| v0.1 · 10M steps | stochastic | 70 % | 4/20 | 1.14 s |
+| **v0.2 · 15M steps** | deterministic | **100 %** | 0/20 | **0.13 s** |
+| **v0.2 · 15M steps** | stochastic | 95 % | 1/20 | 0.16 s |
+
+<p align="center"><img src="docs/hero_v02_slowmo.gif" width="720" alt="v0.2 policy in slow motion: one lunge, front leg on the button, selfie"><br>
+<sub>v0.2 (15M steps) in 8× slow motion: 0.13 s from spawn to selfie, upright the whole way.</sub></p>
 
 <p align="center"><img src="docs/final_curves.png" width="720" alt="training curves, run2 to run4"></p>
 
 Full details, curves, selfie mosaics and the bug list: **[docs/TRAINING_LOG.md](docs/TRAINING_LOG.md)**.
+
+## Brain map
+
+The simulated fly has no neurons: flybody is a body, and the only "brain" here is the PPO network
+(290 → 256 → 256 → 59). To make its activity visible in the videos, `flyphone/brainviz.py` projects it onto
+the real *Drosophila* brain: the positions and classes of 139 248 neurons from the FlyWire connectome
+(Schlegel et al., *Nature* 2024, annotations CC‑BY 4.0), drawn as a point cloud in frontal view.
+
+| Brain region (real neurons) | Lit by (policy signal) |
+|---|---|
+| sensory + ascending (19k) | the 290 normalized observations |
+| central brain (32k) | the 512 hidden units (tanh) |
+| descending + motor (1.4k) | the 59 action means |
+| optic lobes (86k) | nothing — this task has no vision, so they stay dark |
+
+Each network unit is assigned a fixed random subset of neurons in its region, so the same unit always lights
+the same spots. It is a visualization of the artificial policy on real anatomy, **not** a simulation of the
+fly's nervous system. `flyphone/viz.py` also has a plain per-layer grid view (`compose(..., mode="grid")`).
 
 ## Lessons learned (so you don't repeat them)
 
@@ -100,5 +124,11 @@ Ideas and PRs welcome. If you get the fly to take a selfie faster, open an issue
 The body model, physics and task base classes are from **flybody** (Apache 2.0):
 
 > Vaxenburg et al., *Whole-body physics simulation of fruit fly locomotion*, Nature 643, 1312–1320 (2025).
+
+Neuron positions and classes in the brain map are from the **FlyWire** connectome annotations
+([flyconnectome/flywire_annotations](https://github.com/flyconnectome/flywire_annotations), CC‑BY 4.0):
+
+> Schlegel et al., *Whole-brain annotation and multi-connectome cell typing of Drosophila*, Nature 634, 139–152 (2024).
+> Dorkenwald et al., *Neuronal wiring diagram of an adult brain*, Nature 634, 124–138 (2024).
 
 This repo is licensed under Apache 2.0.

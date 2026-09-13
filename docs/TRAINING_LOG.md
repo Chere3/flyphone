@@ -72,7 +72,7 @@ Tracing the deterministic policy showed why: it walks, upright, at ~0.15 cm/s. F
 runs out of the 3 s episode about one body length short of the cap (final distances 0.85–1.08 cm). With
 exploration noise it occasionally covers the gap; the mean action does not.
 
-## run4 — longer episodes, time cost (resumed from run3 @ 5.0M; v0.1 = 10.0M checkpoint, still training to 15M)
+## run4 — longer episodes, time cost (resumed from run3 @ 5.0M, finished at 15.0M; v0.1 = 10M checkpoint, v0.2 = 15M)
 
 - Episode length 3 s → **6 s** (1500 → 3000 control steps).
 - **−0.01 per step** so arriving earlier is worth more than dawdling (max −30 over an episode vs +100 for the photo).
@@ -84,12 +84,27 @@ exploration noise it occasionally covers the gap; the mean action does not.
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Photos /5 | 1 | 0 | 0 | 0 | 0 | 1 | 1 | 2 | 0 | 2 | **3** | 2 | 2 | 1 | 1 | **3** | **3** | **4** | 1 | **4** | **4** |
 
+| Steps | 10.25 | 10.5 | 10.75 | 11.0 | 11.25 | 11.5 | 11.75 | 12.0 | 12.25 | 12.5 | 12.75 | 13.0 | 13.25 | 13.5 | 13.75 | 14.0 | 14.25 | 14.5 | 14.75 | 15.0 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Photos /5 | 3 | 4 | 3 | **5** | **5** | 4 | **5** | **5** | 4 | **5** | **5** | **5** | **5** | **5** | **5** | **5** | **5** | **5** | **5** | **5** |
+
 v0.1 checkpoint (10.0M steps), 20 fresh episodes each, 6 s limit, spawn 0.8–1.4 cm from the button:
 
 | Policy | photo | timeout | flipped | success | mean time to photo |
 |---|:---:|:---:|:---:|:---:|---:|
 | deterministic | 16 | 3 | 1 | **80 %** | 0.57 s |
 | stochastic | 14 | 2 | 4 | 70 % | 1.14 s |
+
+v0.2 checkpoint (15.0M steps), same protocol:
+
+| Policy | photo | timeout | flipped | success | mean time to photo |
+|---|:---:|:---:|:---:|:---:|---:|
+| deterministic | 20 | 0 | 0 | **100 %** | 0.13 s |
+| stochastic | 19 | 0 | 1 | 95 % | 0.16 s |
+
+From 10M to 15M the policy went from "usually" to "always", and from 0.57 s to 0.13 s: it now covers the
+0.8–1.4 cm in a single fast lunge, upright, and lands a front leg on the cap. Twelve perfect 5/5 evaluations
+in a row from 12.5M onward.
 
 The selfies are now taken standing on the button. The gait is not a fly's gait: it is a fast, low lunge-and-step
 that keeps the body upright, which is what a from-scratch PPO policy on 59 actuators finds first. A natural
@@ -98,7 +113,7 @@ gait would need flybody's imitation-trained walker as a low-level controller (is
 <p align="center"><img src="final_curves.png" width="720" alt="run2→run4 training curves"></p>
 <p align="center"><img src="final_selfies.png" width="720" alt="selfies across training"></p>
 
-The full checkpoint-by-checkpoint video (same start state, one episode per checkpoint from 0.5M to 10M
+The full checkpoint-by-checkpoint video (with the FlyWire brain map of policy activity alongside) (same start state, one episode per checkpoint from 0.5M to 10M
 steps) is attached to the [v0.1 release](https://github.com/Chere3/flyphone/releases/tag/v0.1).
 
 ## Bugs that were caught before they burned a run
